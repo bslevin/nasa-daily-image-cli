@@ -1,9 +1,13 @@
+from PIL import Image
+from io import BytesIO
 import os
+
 import typer
 import requests
 import time
 from datetime import datetime
-from env import API_URL
+from env import API_URL, IMAGE_DIR
+
 
 WELCOME_ASCII = """\nAre you ready to explore...
 
@@ -36,11 +40,27 @@ def clear_terminal():
 @app.command()
 def get_image(date: datetime = set_date):
     print('\nBeaming request to NASA...')
+    time.sleep(1.5)
     dt = str(date)
     url = f'{API_URL}&date={dt}'
-    data = requests.get(url)
+    response = requests.get(url)
 
-    typer.echo(data.content)
+    response.raise_for_status()
+    data = response.json()
+    title = data['title']
+
+    image_res = requests.get(data['url'])
+    image = Image.open(BytesIO(image_res.content))
+
+    if not IMAGE_DIR.exists():
+        os.mkdir(IMAGE_DIR)
+    image_name = f"{title}.{image.format}"
+    image.save(IMAGE_DIR / image_name, image.format)
+
+    image.show()
+
+    # typer.echo(image.content)
+    # typer.echo(f"The title of this image is :{data.title}")
 
 
 @app.command()
@@ -58,7 +78,6 @@ def welcome():
         date_field = input(
             'Enter a date in the following format "YYYY-MM-DD"'
             "\nLeave blank and press Enter to use today's date: ")
-        print(date_field)
         if date_field != '':
             get_image(date_field)
             continue
